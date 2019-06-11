@@ -1,7 +1,7 @@
 #!/bin/node
 
 const express = require("express");
-const { server } = require("./config/config");
+const { server } = require("./configure/config");
 const app = express();
 const http = require("http");
 const https = require("https");

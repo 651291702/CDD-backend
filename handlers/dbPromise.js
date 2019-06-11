@@ -1,5 +1,5 @@
 const mysql = require("mysql");
-const config = require("../config/config");
+const config = require("../configure/config");
 const { InternalServerError } = require("../modules/exception");
 let dbConfig = {
   ...config.db,
