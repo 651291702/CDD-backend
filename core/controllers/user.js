@@ -1,5 +1,5 @@
 const expressAsyncHandle = require("../../handlers/expressAsync");
-const { BadRequest, Conflict } = require("../../modules/exception");
+const { BadRequest, Conflict } = require("../../utils/exception");
 const authorization = require("../middleware/authorization");
 const Models = require("../models");
 const bcrypt = require("bcryptjs");

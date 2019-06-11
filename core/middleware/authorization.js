@@ -1,7 +1,7 @@
 const jwtConfig = require("../../config/config").jwt;
 const jwt = require("jsonwebtoken");
 const expressJwt = require("express-jwt");
-const { Unauthorized } = require("../../modules/exception");
+const { Unauthorized } = require("../../utils/exception");
 
 const create = (data, res) => {
   let token = jwt.sign(data, jwtConfig.secret, {
