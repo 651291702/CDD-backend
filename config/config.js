@@ -19,6 +19,6 @@ module.exports = {
   server: {
     httpPort: 8888,
     httpsPort: 8889,
-    prefix: "/"
+    prefix: "/cdd"
   }
 };

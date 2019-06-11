@@ -22,10 +22,8 @@ const checkParam = (req, res, next) => {
  * @api {POST} /user/login login
  * @apiName login
  * @apiGroup User
- *
  * @apiParam  {String} username
  * @apiParam  {String} password the length should between 5 to 20
- *
  * @apiUse User
  * @apiSuccessExample {json} Success
  *     HTTP/1.1 200 OK
@@ -57,10 +55,8 @@ const login = [
  * @api {POST} /user/register Register
  * @apiName register
  * @apiGroup User
- *
  * @apiParam  {String} username
  * @apiParam  {String} password the length should between 5 to 20
- *
  * @apiSuccessExample {json} Success
  *     HTTP/1.1 200 OK
  *

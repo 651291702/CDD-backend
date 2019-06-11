@@ -77,7 +77,7 @@
 
 /**
  *
- * @api {*} * 通用错误格式
+ * @api {*} /* 通用错误格式
  * @apiName Error
  * @apiGroup 0
  *

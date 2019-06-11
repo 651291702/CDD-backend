@@ -26,7 +26,7 @@
     "version": "0.0.1",
     "description": "apiDoc project",
     "title": "锄大地",
-    "url": "https://cdd.gajon.xyz/v1/",
+    "url": "https://api.gajon.xyz/cdd",
     "template": {
       "withCompare": true,
       "withGenerator": false
