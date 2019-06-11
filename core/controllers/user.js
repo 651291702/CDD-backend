@@ -17,6 +17,23 @@ const checkParam = (req, res, next) => {
   next();
 };
 
+/**
+ *
+ * @api {POST} /user/login login
+ * @apiName login
+ * @apiGroup User
+ *
+ * @apiParam  {String} username
+ * @apiParam  {String} password the length should between 5 to 20
+ *
+ * @apiUse User
+ * @apiSuccessExample {json} Success
+ *     HTTP/1.1 200 OK
+ *    {
+ *      ...User
+ *    }
+ */
+
 const login = [
   checkParam,
   expressAsyncHandle(async (req, res, next) => {
@@ -29,9 +46,25 @@ const login = [
     )
       throw new Conflict("账号或密码有误");
     authorization.create({ username: results[0].username }, res);
-    res.status(200).end();
+    res.status(200).json({
+      username
+    });
   })
 ];
+
+/**
+ *
+ * @api {POST} /user/register Register
+ * @apiName register
+ * @apiGroup User
+ *
+ * @apiParam  {String} username
+ * @apiParam  {String} password the length should between 5 to 20
+ *
+ * @apiSuccessExample {json} Success
+ *     HTTP/1.1 200 OK
+ *
+ */
 
 const register = [
   checkParam,
