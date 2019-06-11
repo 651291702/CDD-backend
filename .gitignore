@@ -2,3 +2,4 @@
 node_modules
 modules
 *.config.js
+apidoc

@@ -20,5 +20,16 @@
   },
   "devDependencies": {
     "eslint": "^5.16.0"
+  },
+  "apidoc": {
+    "name": "CDD API Documentation",
+    "version": "0.0.1",
+    "description": "apiDoc project",
+    "title": "锄大地",
+    "url": "https://api.gajon.xyz/cdd",
+    "template": {
+      "withCompare": true,
+      "withGenerator": false
+    }
   }
 }
