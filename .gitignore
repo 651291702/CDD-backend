@@ -1,5 +1,5 @@
 
 node_modules
 modules
-*.config.js
+config.js
 apidoc

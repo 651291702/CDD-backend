@@ -18,8 +18,10 @@ app.use(server.prefix, require("./core/controllers"));
 
 let httpServer = http.createServer(app).listen(server.httpPort, function() {
   console.log(
-    "http is listening in http://localhost:%d",
-    httpServer.address().port
+    `http is listening in http://localhost:${httpServer.address().port}${
+      server.prefix
+    },
+    `
   );
 });
 
