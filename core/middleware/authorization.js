@@ -1,4 +1,4 @@
-const jwtConfig = require("../../config/config").jwt;
+const jwtConfig = require("../../configure/config").jwt;
 const jwt = require("jsonwebtoken");
 const expressJwt = require("express-jwt");
 const { Unauthorized } = require("../../utils/exception");

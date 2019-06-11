@@ -1,6 +1,6 @@
 const mysql = require("mysql");
-const config = require("../config/config");
 const { InternalServerError } = require("../utils/exception");
+const config = require("../configure/config");
 let dbConfig = {
   ...config.db,
   connectionLimit: 10
