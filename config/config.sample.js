@@ -3,7 +3,7 @@ module.exports = {
     host: "localhost",
     user: "",
     password: "",
-    database: "cdd"
+    database: ""
   },
   redis: {
     host: "localhost",
@@ -11,8 +11,10 @@ module.exports = {
     db: 0,
     enable: false
   },
-  env: {
-    JWTKEY: ""
+  jwt: {
+    secret: "",
+    algorithm: "HS256",
+    expiresIn: "1h"
   },
   server: {
     httpPort: 8888,

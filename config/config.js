@@ -1,7 +1,7 @@
 module.exports = {
   db: {
     host: "localhost",
-    user: "",
+    user: "root",
     password: "",
     database: "cdd"
   },
@@ -11,8 +11,10 @@ module.exports = {
     db: 0,
     enable: false
   },
-  env: {
-    JWTKEY: ""
+  jwt: {
+    secret: "4zJBzGDbhFOu6iSdALLl",
+    algorithm: "HS256",
+    expiresIn: "1h"
   },
   server: {
     httpPort: 8888,

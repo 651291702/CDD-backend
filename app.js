@@ -9,7 +9,7 @@ const fs = require("fs");
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-app.use(server.prefix, require("./core/controllers/index"));
+app.use(server.prefix, require("./core/controllers"));
 
 // const option = {
 //   key: fs.readFileSync("./certificate/2_jzb.deeract.com.key"),
