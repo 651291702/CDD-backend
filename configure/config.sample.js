@@ -7,8 +7,7 @@ module.exports = {
   },
   redis: {
     host: "localhost",
-    port: 7890,
-    db: 0,
+    port: 6379,
     enable: false
   },
   jwt: {

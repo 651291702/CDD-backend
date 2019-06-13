@@ -11,7 +11,13 @@ router.use(
     index: "index.html"
   })
 );
-router.use(authorization.verify());
+router.use(
+  "/",
+  express.static(__dirname + "/public", {
+    index: "index.html"
+  })
+);
+// router.use(authorization.verify());
 
 // 登陆注册功能
 router.post("/user/login", userAccount.login);

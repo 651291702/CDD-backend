@@ -8,20 +8,12 @@ let dbConfig = {
 
 const pool = mysql.createPool(dbConfig);
 
-const queryPromiseWrapper = (sqlString, ...values) => {
+module.exports = (sqlString, ...values) => {
   return new Promise((resolve, reject) => {
     pool.query(sqlString, ...values, (error, results, fields) => {
-      if (error) reject(error);
-      resolve([results, fields]);
+      if (error)
+        reject(new InternalServerError("DB statement execute failed", error));
+      resolve([results, fields] || []);
     });
   });
-};
-
-module.exports = async (sqlString, ...values) => {
-  let [results, fields] = await queryPromiseWrapper(sqlString, ...values).catch(
-    function(err) {
-      throw new InternalServerError("DB statement execute failed", err);
-    }
-  );
-  return [results, fields] || [];
 };

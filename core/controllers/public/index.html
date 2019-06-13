@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <script src="./socket.io.js"></script>
+  <title>Document</title>
+</head>
+
+<body>
+  <script>
+    let token = window.location.search.substring(1);
+    let socket = io.connect('http://localhost:8888', {
+      "path": "/cdd/room",
+      'query': 'token=' + token
+    });
+    socket.on("WAITING", (data) => {
+      console.log(data)
+    })
+    socket.on("PLAYING", (data, card) => {
+      console.log(data)
+      console.log(card)
+    })
+    socket.on("END", (data, cards) => {
+      console.log(data)
+      console.log(cards)
+    })
+    /**
+     * 准备
+     */
+    //  socket.emit("prepare")
+
+
+    /**
+     * 出牌
+     */
+    // socket.emit("play card", [{number: xx, type: "    "}])
+
+
+    /**
+     * 监听游戏等待 以及 开始 以及 游戏结束
+     */
+    // socket.emit("WAITING")
+    // socket.emit("PLAYING")
+    // socket.emit("END")
+  </script>
+</body>
+
+</html>
