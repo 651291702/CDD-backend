@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "node ./app.js"
+    "dev": "redis-cli flushall && node ./app.js",
+    "server": "node ./app.js"
   },
   "keywords": [],
   "author": "",

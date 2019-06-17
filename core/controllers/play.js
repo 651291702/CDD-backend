@@ -94,6 +94,7 @@ module.exports = function(io) {
                 reconnectFlag = true;
                 findRoomFlag = true;
                 playerRoomInfo = singleRoomInfo;
+                playerRoomNumber = playerRoomInfo.room_number;
                 return;
               }
             });
@@ -138,7 +139,10 @@ module.exports = function(io) {
             "RECONNECT"
           );
         } else {
-          io.to(playerRoomNumber).emit("WAITING", playerRoomInfo);
+          io.to(playerRoomNumber).emit(
+            "WAITING",
+            JSON.stringify(playerRoomInfo)
+          );
         }
       });
     })();
@@ -146,7 +150,7 @@ module.exports = function(io) {
     /**
      * Cancle prepare
      */
-    socket.on("cancle prepare", async () => {
+    socket.on("Cancle Prepare", async () => {
       let preparePlayers;
       let playerRoomInfo;
       let playerRoomNumber = socket.roomNumber;
@@ -158,13 +162,13 @@ module.exports = function(io) {
       let index = playerExitInPlayerSet(socket, playerRoomInfo.players);
       playerRoomInfo.players[index].status = "Not Prepare";
       await Model.Room.updateRoomInfo(playerRoomNumber, playerRoomInfo);
-      io.to(playerRoomNumber).emit("WAITING", playerRoomInfo);
+      io.to(playerRoomNumber).emit("WAITING", JSON.stringify(playerRoomInfo));
     });
 
     /**
      * make prepare
      */
-    socket.on("prepare", async () => {
+    socket.on("Prepare", async () => {
       let preparePlayers;
       let playerRoomInfo;
       let playerRoomNumber = socket.roomNumber;
@@ -178,7 +182,7 @@ module.exports = function(io) {
       io.to(playerRoomNumber).prepare = preparePlayers;
       if (preparePlayers === 4) playerRoomInfo.status = "PLAYING";
       await Model.Room.updateRoomInfo(playerRoomNumber, playerRoomInfo);
-      io.to(playerRoomNumber).emit("WAITING", playerRoomInfo);
+      io.to(playerRoomNumber).emit("WAITING", JSON.stringify(playerRoomInfo));
       if (preparePlayers !== 4) return;
 
       let playerCardSet = initCards();
@@ -204,8 +208,9 @@ module.exports = function(io) {
      * Play game process
      */
 
-    socket.on("play card", async cards => {
+    socket.on("Play Card", async cards => {
       // Reduce card to player
+      cards = JSON.parse(cards);
       let roomInfo = await Model.Room.getRoomInfo(socket.roomNumber);
       let playerCardSet = await Model.Room.getAllPlayerCard(socket.roomNumber);
       let { current, room_number } = roomInfo;
@@ -241,9 +246,14 @@ module.exports = function(io) {
           (roomInfo.prePlayer = -1),
           (roomInfo.rest_second = RoundTime);
         Model.Room.updateRoomInfo(room_number, roomInfo);
-        io.to(room_number).emit("END", roomInfo, playerCardSet);
+        io.to(room_number).emit(
+          "END",
+          JSON.stringify(roomInfo),
+          JSON.stringify(playerCardSet)
+        );
         let timer = io.to(room_number).timer;
         if (timer) clearInterval(timer);
+        io.to(room_number).prepare = 0;
         let clients = await getClientList(room_number);
         for (let clientId of clients) {
           let client = io.sockets.sockets[clientId];
@@ -289,7 +299,11 @@ module.exports = function(io) {
     let { username, id } = socket;
     for (let i = 0; i < 4; i++)
       if (username === playerRoomInfo.players[i].username)
-        io.to(id).emit(event, playerRoomInfo, playerCardSet[i]);
+        io.to(id).emit(
+          event,
+          JSON.stringify(playerRoomInfo),
+          JSON.stringify(playerCardSet[i])
+        );
   }
 
   function getClientList(roomNumber) {
