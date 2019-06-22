@@ -19,11 +19,12 @@ Card Object
 
 **Emit event**
 
-| Event     | Paramater                      |
-| --------- | ------------------------------ |
-| "WAITING" | PlayerRoomInfo                 |
-| "PLAYING" | PlayerRoomInfo, PlayerCards    |
-| "END"     | PlayerRoomInfo,  PlayerCardSet |
+| Event       | Paramater                      |
+| ----------- | ------------------------------ |
+| "WAITING"   | PlayerRoomInfo                 |
+| "PLAYING"   | PlayerRoomInfo, PlayerCards    |
+| "RECONNECT" | PlayerRoomInfo, PlayerCards    |
+| "END"       | PlayerRoomInfo,  PlayerCardSet |
 
 PlayerRoomInfo Object
 
