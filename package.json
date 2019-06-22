@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "dev": "redis-cli flushall && node ./app.js",
-    "server": "/usr/local/redis/bin/redis-cli flushall &&  node ./app.js"
+    "server": "/usr/local/redis/bin/redis-cli flushall &&  node ./app.js",
+    "server-live": "npm run server >log.txt 2>&1 &"
   },
   "keywords": [],
   "author": "",

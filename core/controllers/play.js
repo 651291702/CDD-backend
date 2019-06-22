@@ -156,6 +156,7 @@ module.exports = function(io) {
       let playerRoomNumber = socket.roomNumber;
       if (!socket.prepare) return;
       playerRoomInfo = await Model.Room.getRoomInfo(playerRoomNumber);
+      if(playerRoomInfo.status === "PLAYING") return;
       socket.prepare = false;
       preparePlayers = io.to(playerRoomNumber).prepare - 1;
       io.to(playerRoomNumber).prepare = preparePlayers;
@@ -173,9 +174,11 @@ module.exports = function(io) {
       let playerRoomInfo;
       let playerRoomNumber = socket.roomNumber;
       if (socket.prepare) return;
-
       playerRoomInfo = await Model.Room.getRoomInfo(playerRoomNumber);
+      if(playerRoomInfo.status === "PLAYING") return;
       socket.prepare = true;
+      // console.log(playerRoomNumber)
+      // console.log(io.to(playerRoomNumber).prepare)
       preparePlayers = (io.to(playerRoomNumber).prepare || 0) + 1;
       let index = playerExitInPlayerSet(socket, playerRoomInfo.players);
       playerRoomInfo.players[index].status = "Prepare";
@@ -272,12 +275,17 @@ module.exports = function(io) {
       let clients = await getClientList(playerRoomInfo.room_number);
       if (playerRoomInfo.status === "WAITING") {
         let index = playerExitInPlayerSet(socket, playerRoomInfo.players);
-        if (index >= 0) playerRoomInfo.players.splice(index, 1);
+	let userInfo;
+        if (index >= 0) userInfo =  playerRoomInfo.players.splice(index, 1);
+        if(userInfo[0].status === "Prepare")
+		io.to(playerRoomInfo).prepare--;
+	io.to(playerRoomInfo.room_number).emit("WAITING", JSON.stringify(playerRoomInfo));
       }
       await Model.Room.updateRoomInfo(socket.roomNumber, playerRoomInfo);
       if (clients.length === 0) {
         let timer = io.to(playerRoomInfo.room_number).timer;
         if (timer) clearInterval(timer);
+        io.to(playerRoomInfo.room_number).prepare = 0
         await Model.Room.clearAllPlayer(playerRoomInfo.room_number);
       }
     });
