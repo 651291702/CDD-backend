@@ -35,7 +35,7 @@ function test() {
       algorithm: jwtConfig.algorithm || "RS256",
       expiresIn: jwtConfig.expiresIn || "1h"
     });
-    console.log("http://localhost:8888/cdd?" + token);
+    console.log("http://api.gajon.xyz:8888/cdd?" + token);
   }
 }
 test();

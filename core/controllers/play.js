@@ -129,7 +129,7 @@ module.exports = function(io) {
       // Update Redis store and broadcast this Room all player include this socket
       await Model.Room.updateRoomInfo(playerRoomNumber, playerRoomInfo);
       socket.join(playerRoomNumber, async () => {
-        console.log(socket.username + " is enter " + socket.roomNumber);
+        console.log(socket.roomNumber + ": " +  socket.username + " enter ");
         if (reconnectFlag) {
           playerCardSet = await Model.Room.getAllPlayerCard(playerRoomNumber);
           broadCastSelfSocket(
@@ -180,6 +180,7 @@ module.exports = function(io) {
       let index = playerExitInPlayerSet(socket, playerRoomInfo.players);
       playerRoomInfo.players[index].status = "Prepare";
       io.to(playerRoomNumber).prepare = preparePlayers;
+      console.log(playerRoomNumber, "has aleary prepare ", preparePlayers, " persons");
       if (preparePlayers === 4) playerRoomInfo.status = "PLAYING";
       await Model.Room.updateRoomInfo(playerRoomNumber, playerRoomInfo);
       io.to(playerRoomNumber).emit("WAITING", JSON.stringify(playerRoomInfo));
@@ -298,6 +299,7 @@ module.exports = function(io) {
   function broadCastSelfSocket(socket, playerRoomInfo, playerCardSet, event) {
     let { username, id } = socket;
     for (let i = 0; i < 4; i++)
+      if(playerRoomInfo.players[i] && playerRoomInfo.players[i].username)
       if (username === playerRoomInfo.players[i].username)
         io.to(id).emit(
           event,
