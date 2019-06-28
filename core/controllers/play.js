@@ -1,7 +1,11 @@
 const Model = require("../models");
 const socketioJwt = require("socketio-jwt");
 const jwtConfig = require("../../configure/config").jwt;
-
+/**
+ * Card Object
+ * number 1 - 13
+ * type  enum CARD_TYPE
+ */
 const CARD_TYPE = {
   0: "BLACK SPADE",
   1: "BLACK CLUB",
@@ -13,30 +17,34 @@ const CARD_TYPE = {
  * Randow to deliver card
  */
 const initCards = () => {
+  // firstHand: Find the index of player that have number 3 and type "RED DIAMOND"
+  let firstHand = 0;
   let playerCardSet = [];
   let totalCards = [];
-  let currentCardCount = 52;
+  // Random sort Array to 4 piece
   for (let i = 0; i < 52; i++)
     totalCards.push({
       number: parseInt(i / 4) + 1,
       type: CARD_TYPE[i % 4]
     });
+  totalCards.sort(() => {
+    let seed = Math.random();
+    return seed > 0.5 ? 1 : -1;
+  });
   for (let i = 0; i < 4; i++) {
-    let playerCard = [];
-    for (let j = 0; j < 13; j++, currentCardCount--) {
-      let index =
-        parseInt(Math.random() * currentCardCount * 2) % currentCardCount;
-      playerCard.push(totalCards.splice(index, 1)[0]);
-    }
-    playerCard.sort((left, right) => {
+    let groupCard = totalCards.splice(0, 13);
+    groupCard.sort((left, right) => {
       if (left.number < right.number) return -1;
       if (left.number > right.number) return 1;
       if (left.type < right.type) return -1;
       return 0;
     });
-    playerCardSet.push(playerCard);
+    playerCardSet.push(groupCard);
+
+    for (let card of groupCard)
+      if (card.number === 3 && card.type === "RED DIAMOND") firstHand = i;
   }
-  return playerCardSet;
+  return [playerCardSet, firstHand];
 };
 
 const cardExitInCardSet = (card, cardSet) => {
@@ -48,10 +56,10 @@ const cardExitInCardSet = (card, cardSet) => {
   return -1;
 };
 
-const playerExitInPlayerSet = (player, playerSet) => {
+const playerExitInPlayerSet = (socket, playerSet) => {
   for (let i = 0, length = playerSet.length; i < length; i++) {
     let originPlayer = playerSet[i];
-    if (originPlayer.username === player.username) return i;
+    if (originPlayer.username === socket.username) return i;
   }
   return -1;
 };
@@ -70,31 +78,34 @@ module.exports = function(io) {
   );
 
   io.on("connection", async socket => {
+    const username = socket.decoded_token.username;
+    socket.username = username;
+    let nowRoomNo = null;
     /**
      * Enter a Room
      * Create Room Or Enter a exit room
      */
     (async () => {
-      let playerRoomNumber;
-      let playerRoomInfo = {};
+      let roomNo;
+      let room = {};
       let findRoomFlag = false;
       let reconnectFlag = false;
-      let username = socket.decoded_token.username;
-      let roomNumbers = await Model.Room.getRoomNumbers();
+
       // Enter a exit room( Tow situation: Reconnect  or  New Player)
-      if (roomNumbers && roomNumbers.length > 0)
-        for (let roomNumber of roomNumbers) {
+      let rooms = await Model.Room.getRoomNumbers();
+      if (rooms && rooms.length > 0)
+        for (let currentRoomNo of rooms) {
           if (reconnectFlag) break;
-          let singleRoomInfo = await Model.Room.getRoomInfo(roomNumber);
-          let players = singleRoomInfo.players;
+          let currentRoom = await Model.Room.getRoomInfo(currentRoomNo);
+          let players = currentRoom.players;
           if (players && players.length > 0) {
             // Judge Whether reconnect the game
             players.forEach(player => {
               if (player.username === username) {
                 reconnectFlag = true;
                 findRoomFlag = true;
-                playerRoomInfo = singleRoomInfo;
-                playerRoomNumber = playerRoomInfo.room_number;
+                room = currentRoom;
+                roomNo = currentRoom.room_number;
                 return;
               }
             });
@@ -102,47 +113,37 @@ module.exports = function(io) {
             // then toggle game status
             if (players.length < 4 && !reconnectFlag) {
               findRoomFlag = true;
-              playerRoomNumber = singleRoomInfo.room_number;
-              playerRoomInfo = Object.assign({}, singleRoomInfo);
-              playerRoomInfo.players.push({ username, status: "Not Prepare" });
+              roomNo = currentRoom.room_number;
+              room = Object.assign({}, currentRoom);
+              room.players.push({ username, status: "Not Prepare" });
             }
           }
         }
       // Create a new Room
       if (!findRoomFlag) {
-        playerRoomNumber = Math.random()
+        roomNo = Math.random()
           .toString(10)
           .substr(2, 5);
-        playerRoomInfo = {
-          room_number: playerRoomNumber,
+        room = {
+          room_number: roomNo,
           players: [{ username, status: "Not Prepare" }],
           status: "WAITING",
-          current: 0,
+          current: -1,
           precard: [],
           prePlayer: -1,
           rest_second: RoundTime
         };
       }
-      socket.username = username;
-      socket.roomNumber = playerRoomNumber;
-      let playerCardSet;
+      nowRoomNo = roomNo;
       // Update Redis store and broadcast this Room all player include this socket
-      await Model.Room.updateRoomInfo(playerRoomNumber, playerRoomInfo);
-      socket.join(playerRoomNumber, async () => {
-        console.log(socket.roomNumber + ": " +  socket.username + " enter ");
+      await Model.Room.updateRoomInfo(roomNo, room);
+      socket.join(roomNo, async () => {
+        console.log(nowRoomNo + ": " + username + " enter ");
         if (reconnectFlag) {
-          playerCardSet = await Model.Room.getAllPlayerCard(playerRoomNumber);
-          broadCastSelfSocket(
-            socket,
-            playerRoomInfo,
-            playerCardSet,
-            "RECONNECT"
-          );
+          let playerCardSet = await Model.Room.getAllPlayerCard(roomNo);
+          broadCastSelfSocket(socket, room, playerCardSet, "RECONNECT");
         } else {
-          io.to(playerRoomNumber).emit(
-            "WAITING",
-            JSON.stringify(playerRoomInfo)
-          );
+          io.to(roomNo).emit("WAITING", JSON.stringify(room));
         }
       });
     })();
@@ -151,60 +152,57 @@ module.exports = function(io) {
      * Cancle prepare
      */
     socket.on("Cancle Prepare", async () => {
-      let preparePlayers;
-      let playerRoomInfo;
-      let playerRoomNumber = socket.roomNumber;
+      let room;
+      let roomNo = nowRoomNo;
       if (!socket.prepare) return;
-      playerRoomInfo = await Model.Room.getRoomInfo(playerRoomNumber);
-      if(playerRoomInfo.status === "PLAYING") return;
+      room = await Model.Room.getRoomInfo(roomNo);
+      if (room.status === "PLAYING") return;
       socket.prepare = false;
-      preparePlayers = io.to(playerRoomNumber).prepare - 1;
-      io.to(playerRoomNumber).prepare = preparePlayers;
-      let index = playerExitInPlayerSet(socket, playerRoomInfo.players);
-      playerRoomInfo.players[index].status = "Not Prepare";
-      await Model.Room.updateRoomInfo(playerRoomNumber, playerRoomInfo);
-      io.to(playerRoomNumber).emit("WAITING", JSON.stringify(playerRoomInfo));
+      io.to(roomNo).prepare = io.to(roomNo).prepare - 1;
+      let index = playerExitInPlayerSet(socket, room.players);
+      room.players[index].status = "Not Prepare";
+      await Model.Room.updateRoomInfo(roomNo, room);
+      io.to(roomNo).emit("WAITING", JSON.stringify(room));
     });
 
     /**
      * make prepare
      */
     socket.on("Prepare", async () => {
-      let preparePlayers;
-      let playerRoomInfo;
-      let playerRoomNumber = socket.roomNumber;
+      let prepareCount;
+      let room;
+      let roomNo = nowRoomNo;
       if (socket.prepare) return;
-      playerRoomInfo = await Model.Room.getRoomInfo(playerRoomNumber);
-      if(playerRoomInfo.status === "PLAYING") return;
+      room = await Model.Room.getRoomInfo(roomNo);
+      if (room.status === "PLAYING") return;
       socket.prepare = true;
-      // console.log(playerRoomNumber)
-      // console.log(io.to(playerRoomNumber).prepare)
-      preparePlayers = (io.to(playerRoomNumber).prepare || 0) + 1;
-      let index = playerExitInPlayerSet(socket, playerRoomInfo.players);
-      playerRoomInfo.players[index].status = "Prepare";
-      io.to(playerRoomNumber).prepare = preparePlayers;
-      console.log(playerRoomNumber, "has aleary prepare ", preparePlayers, " persons");
-      if (preparePlayers === 4) playerRoomInfo.status = "PLAYING";
-      await Model.Room.updateRoomInfo(playerRoomNumber, playerRoomInfo);
-      io.to(playerRoomNumber).emit("WAITING", JSON.stringify(playerRoomInfo));
-      if (preparePlayers !== 4) return;
-
-      let playerCardSet = initCards();
-      await Model.Room.updateAllPlayerCard(playerRoomNumber, playerCardSet);
-      await broadCastCard(playerRoomInfo, playerCardSet);
-      io.to(playerRoomNumber).timer = setInterval(async () => {
-        let roomInfo = await Model.Room.getRoomInfo(playerRoomNumber);
-        let { current, room_number, rest_second } = roomInfo;
-        roomInfo.rest_second = rest_second - 1;
-        if (roomInfo.rest_second === 0) {
-          roomInfo.rest_second = RoundTime;
-          roomInfo.current = (current + 1) % 4;
-          broadCastCard(
-            roomInfo,
-            await Model.Room.getAllPlayerCard(room_number)
-          );
+      prepareCount = (io.to(roomNo).prepare || 0) + 1;
+      let index = playerExitInPlayerSet(socket, room.players);
+      room.players[index].status = "Prepare";
+      io.to(roomNo).prepare = prepareCount;
+      console.log(roomNo, "has aleary prepare ", prepareCount, " persons");
+      if (prepareCount !== 4) {
+        io.to(roomNo).emit("WAITING", JSON.stringify(room));
+        await Model.Room.updateRoomInfo(roomNo, room);
+        return;
+      }
+      io.to(roomNo).emit("WAITING", JSON.stringify(room));
+      let [playerCardSet, firstHand] = initCards();
+      room.status = "PLAYING";
+      room.current = firstHand;
+      await Model.Room.updateRoomInfo(roomNo, room);
+      await Model.Room.updateAllPlayerCard(roomNo, playerCardSet);
+      await broadCastCard(room, playerCardSet);
+      io.to(roomNo).timer = setInterval(async () => {
+        let room = await Model.Room.getRoomInfo(roomNo);
+        let { current, room_number, rest_second } = room;
+        room.rest_second = rest_second - 1;
+        if (room.rest_second === 0) {
+          room.rest_second = RoundTime;
+          room.current = (current + 1) % 4;
+          broadCastCard(room, await Model.Room.getAllPlayerCard(room_number));
         }
-        await Model.Room.updateRoomInfo(room_number, roomInfo);
+        await Model.Room.updateRoomInfo(room_number, room);
       }, 1000);
     });
 
@@ -215,50 +213,51 @@ module.exports = function(io) {
     socket.on("Play Card", async cards => {
       // Reduce card to player
       cards = JSON.parse(cards);
-      let roomInfo = await Model.Room.getRoomInfo(socket.roomNumber);
-      let playerCardSet = await Model.Room.getAllPlayerCard(socket.roomNumber);
-      let { current, room_number } = roomInfo;
-      roomInfo.current = (current + 1) % 4;
-      roomInfo.rest_second = RoundTime;
-      if (roomInfo.players[current].username !== socket.username) return;
+      let room = await Model.Room.getRoomInfo(nowRoomNo);
+      let roomNo = nowRoomNo;
+      let playerCardSet = await Model.Room.getAllPlayerCard(nowRoomNo);
+      let { current } = room;
+      room.current = (current + 1) % 4;
+      room.rest_second = RoundTime;
+      if (room.players[current].username !== username) return;
       if (cards.length > 0) {
-        roomInfo.precard = cards;
-        roomInfo.prePlayer = current;
+        room.precard = cards;
+        room.prePlayer = current;
       }
-      await Model.Room.updateRoomInfo(room_number, roomInfo);
+      await Model.Room.updateRoomInfo(roomNo, room);
       if (cards.length > 0) {
         for (let card of cards) {
           let index = cardExitInCardSet(card, playerCardSet[current]);
           if (index >= 0) playerCardSet[current].splice(index, 1);
         }
-        Model.Room.updateAllPlayerCard(room_number, playerCardSet);
+        Model.Room.updateAllPlayerCard(roomNo, playerCardSet);
       }
-      await broadCastCard(roomInfo, playerCardSet);
+      await broadCastCard(room, playerCardSet);
 
       // Judge Game whether over
       // If over
       // 1. reset all socket prepare status
-      // 2. reset roomInfo to original condition
+      // 2. reset room to original condition
       // 3. clear timer
       if (playerCardSet[current].length === 0) {
-        roomInfo.players.forEach(item => {
+        room.players.forEach(item => {
           item.status = "Not Prepare";
         });
-        roomInfo.status = "WAITING";
-        (roomInfo.current = 0),
-          (roomInfo.precard = []),
-          (roomInfo.prePlayer = -1),
-          (roomInfo.rest_second = RoundTime);
-        Model.Room.updateRoomInfo(room_number, roomInfo);
-        io.to(room_number).emit(
+        room.status = "WAITING";
+        room.current = 0;
+        room.precard = [];
+        room.prePlayer = -1;
+        room.rest_second = RoundTime;
+        Model.Room.updateRoomInfo(roomNo, room);
+        io.to(roomNo).emit(
           "END",
-          JSON.stringify(roomInfo),
+          JSON.stringify(room),
           JSON.stringify(playerCardSet)
         );
-        let timer = io.to(room_number).timer;
+        let timer = io.to(roomNo).timer;
         if (timer) clearInterval(timer);
-        io.to(room_number).prepare = 0;
-        let clients = await getClientList(room_number);
+        io.to(roomNo).prepare = 0;
+        let clients = await getClientList(roomNo);
         for (let clientId of clients) {
           let client = io.sockets.sockets[clientId];
           client.prepare = false;
@@ -270,50 +269,49 @@ module.exports = function(io) {
      * clean room in redis and clearInteval timer
      */
     socket.on("disconnect", async () => {
-      console.log(socket.username + " is leave the room");
-      let playerRoomInfo = await Model.Room.getRoomInfo(socket.roomNumber);
-      let clients = await getClientList(playerRoomInfo.room_number);
-      if (playerRoomInfo.status === "WAITING") {
-        let index = playerExitInPlayerSet(socket, playerRoomInfo.players);
-	let userInfo;
-        if (index >= 0) userInfo =  playerRoomInfo.players.splice(index, 1);
-        if(userInfo[0].status === "Prepare")
-		io.to(playerRoomInfo).prepare--;
-	io.to(playerRoomInfo.room_number).emit("WAITING", JSON.stringify(playerRoomInfo));
+      console.log(username + " is leave the room");
+      let room = await Model.Room.getRoomInfo(nowRoomNo);
+      let clients = await getClientList(nowRoomNo);
+      if (room.status === "WAITING") {
+        let index = playerExitInPlayerSet(socket, room.players);
+        let userInfo;
+        if (index >= 0) userInfo = room.players.splice(index, 1);
+        if (userInfo[0].status === "Prepare") io.to(room).prepare--;
+        io.to(nowRoomNo).emit("WAITING", JSON.stringify(room));
       }
-      await Model.Room.updateRoomInfo(socket.roomNumber, playerRoomInfo);
+      await Model.Room.updateRoomInfo(nowRoomNo, room);
       if (clients.length === 0) {
-        let timer = io.to(playerRoomInfo.room_number).timer;
+        let timer = io.to(nowRoomNo).timer;
         if (timer) clearInterval(timer);
-        io.to(playerRoomInfo.room_number).prepare = 0
-        await Model.Room.clearAllPlayer(playerRoomInfo.room_number);
+        io.to(nowRoomNo).prepare = 0;
+        await Model.Room.clearAllPlayer(nowRoomNo);
       }
     });
   });
   /**
    * Broadcast all Player about their rest cards with different message
    */
-  async function broadCastCard(playerRoomInfo, playerCardSet) {
-    let { room_number } = playerRoomInfo;
+  async function broadCastCard(room, playerCardSet) {
+    let { room_number } = room;
     let clients = await getClientList(room_number);
     for (let clientId of clients) {
       let client = io.sockets.sockets[clientId];
-      broadCastSelfSocket(client, playerRoomInfo, playerCardSet, "PLAYING");
+      broadCastSelfSocket(client, room, playerCardSet, "PLAYING");
     }
   }
   /**
    * BroadCost self socket
    */
-  function broadCastSelfSocket(socket, playerRoomInfo, playerCardSet, event) {
+  function broadCastSelfSocket(socket, room, playerCardSet, event) {
     let { username, id } = socket;
     for (let i = 0; i < 4; i++)
-      if(playerRoomInfo.players[i] && playerRoomInfo.players[i].username)
-      if (username === playerRoomInfo.players[i].username)
-        io.to(id).emit(
-          event,
-          JSON.stringify(playerRoomInfo),
-          JSON.stringify(playerCardSet[i])
-        );
+      if (room.players[i] && room.players[i].username)
+        if (username === room.players[i].username)
+          io.to(id).emit(
+            event,
+            JSON.stringify(room),
+            JSON.stringify(playerCardSet[i])
+          );
   }
 
   function getClientList(roomNumber) {
